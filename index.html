@@ -811,7 +811,7 @@ function renderStats() {
   const assigned = S.schedules.filter(s => s.day === S.activeDay);
   const done = assigned.filter(s => s.done).length;
   const left = assigned.length - done;
-  const pool = S.interns.filter(i => !S.schedules.find(s => s.intern_id === i.id && s.day === S.activeDay)).length;
+  const pool = S.interns.filter(i => !S.schedules.find(s => s.intern_id === i.id)).length;
   document.getElementById('chip-done').textContent = `${done} ✓`;
   document.getElementById('chip-left').textContent = `${left} belum`;
   document.getElementById('chip-pool').textContent = `${pool} 📋`;
@@ -856,7 +856,7 @@ function renderPool() {
 
   // interns not assigned to activeDay
   const unassigned = S.interns.filter(i => {
-    const hasSlot = S.schedules.find(s => s.intern_id===i.id && s.day===S.activeDay);
+    const hasSlot = S.schedules.find(s => s.intern_id===i.id);
     if(hasSlot) return false;
     if(!matchesFilters(i)) return false;
     if(S.doneFilter !== 'all') return false; // pool is always undone
