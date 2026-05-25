@@ -228,10 +228,10 @@ body.setting-mode .app-body { flex: 1; }
 }
 .intern-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
 .intern-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
-.intern-chip.unassigned-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
 .intern-chip.done { background: rgba(0,140,70,0.15); border-color: rgba(0,196,106,0.3); }
 .intern-chip.done .chip-name { color: rgba(255,255,255,0.35); text-decoration: line-through; }
 .intern-chip.unassigned-chip { background: rgba(60,130,220,0.1); border-color: rgba(80,160,255,0.25); }
+.intern-chip.unassigned-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
 
 .chip-name {
   font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.88);
@@ -324,13 +324,20 @@ body.select-mode .slot-add-btn { display: flex; align-items: center; }
 .fab-btn.assign:hover { background: rgba(200,130,0,0.9); }
 .fab-btn.done-fab { background: rgba(0,140,70,0.9); color: white; }
 .fab-btn.done-fab:hover { background: #007a3a; }
-.fab-btn.remove { background: rgba(200,0,12,0.8); color: white; }
-.fab-btn.remove:hover { background: rgba(200,0,12,0.95); }
+.fab-btn.lepas { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+.fab-btn.lepas:hover { background: rgba(255,255,255,0.2); color: white; }
+.fab-btn.hapus { background: rgba(200,0,12,0.85); color: white; }
+.fab-btn.hapus:hover { background: rgba(200,0,12,1); }
 .fab-btn.cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); padding: 0 10px; }
 .fab-btn.cancel:hover { background: rgba(255,255,255,0.12); color: white; }
 
 /* ===== INTERN CHIP CHECKBOX ===== */
 body.select-mode .intern-chip { cursor: pointer; }
+
+/* orphan chip */
+.intern-chip.orphan { border-color: rgba(255,200,0,0.6); background: rgba(255,200,0,0.07); }
+.intern-chip.orphan .chip-name { color: rgba(255,210,0,0.9); }
+.intern-chip.orphan.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.9); }
 
 /* ===== MODAL ===== */
 .modal-overlay {
@@ -514,7 +521,8 @@ body.select-mode .intern-chip { cursor: pointer; }
   <span class="fab-count" id="fab-count">0</span>
   <button class="fab-btn assign" onclick="openAssignModal()">📋 Jam</button>
   <button class="fab-btn done-fab" onclick="bulkToggleDone()">✓ Done</button>
-  <button class="fab-btn remove" onclick="bulkRemoveFromSlot()">🗑 Lepas</button>
+  <button class="fab-btn lepas" onclick="bulkRemoveFromSlot()">↩ Lepas</button>
+  <button class="fab-btn hapus" onclick="bulkDeleteInterns()">🗑 Hapus</button>
   <button class="fab-btn cancel" onclick="clearSelection()">✕</button>
 </div>
 
@@ -628,14 +636,15 @@ const DAYS = [
 
 // ===== STATE =====
 let S = {
-  interns: [],        // snapshot from kenshin_interns (cached haichi data)
-  schedules: [],      // [{id, intern_id, day, mcu_time, done}]
+  interns: [],
+  schedules: [],
+  orphanIds: new Set(), // intern_id yang tidak ada di Haichi
   activeDay: 'mon',
-  batchFilter: 'all', // 'all' | batch string
-  kojoFilter: 'all',  // 'all' | 'kojo1' | 'kojo2'
-  doneFilter: 'all',  // 'all' | 'done' | 'undone'
+  batchFilter: 'all',
+  kojoFilter: 'all',
+  doneFilter: 'all',
   selectMode: false,
-  selected: new Set(), // intern_id strings
+  selected: new Set(),
   settingMode: false,
   openSlots: new Set(),
   poolOpen: true,
@@ -822,15 +831,20 @@ function makeChip(intern, schEntry) {
   const isDone = schEntry ? schEntry.done : false;
   const isK2 = intern.factory === 'kojo2';
   const isSel = S.selected.has(intern.id);
+  const isOrphan = S.orphanIds.has(intern.id);
 
   const chip = document.createElement('div');
-  chip.className = 'intern-chip' + (isDone?' done':'') + (!schEntry?' unassigned-chip':'') + (isSel?' selected':'');
+  chip.className = 'intern-chip'
+    + (isDone?' done':'')
+    + (!schEntry?' unassigned-chip':'')
+    + (isSel?' selected':'')
+    + (isOrphan?' orphan':'');
   chip.dataset.internId = intern.id;
 
   const deptShort = (intern.dept||'').replace('Kumitate','組').replace('Bode','ボ').replace('Toso','塗');
 
   chip.innerHTML = `
-    <span class="chip-name">${esc(intern.name)}</span>
+    <span class="chip-name">${esc(intern.name)}${isOrphan?' <span style="font-size:9px;color:rgba(255,200,0,0.8);">⚠</span>':''}</span>
     <div class="chip-meta">
       <span class="chip-shift-dot ${isK2?'k2':'k1'}"></span>
       <span class="chip-batch">${esc(intern.batch||'–')}</span>
@@ -842,7 +856,6 @@ function makeChip(intern, schEntry) {
   chip.addEventListener('click', e => {
     e.stopPropagation();
     if(S.selectMode) { toggleSelect(intern.id); return; }
-    // quick toggle done if already assigned
     if(schEntry) { quickToggleDone(schEntry.id); }
   });
 
@@ -1049,17 +1062,44 @@ async function bulkRemoveFromSlot() {
   if(!S.selected.size) return;
   const ids = [...S.selected];
   const toRemove = ids.map(iid => S.schedules.find(s=>s.intern_id===iid && s.day===S.activeDay)).filter(Boolean);
-  if(!toRemove.length) { toast('Tidak ada yang bisa dilepas'); return; }
-  showConfirm(`Lepas jadwal <strong>${toRemove.length} orang</strong> dari hari ini?`, async () => {
-    showLoading(true,'Menghapus...');
+  if(!toRemove.length) { toast('Tidak ada jadwal yang bisa dilepas hari ini'); return; }
+  showConfirm(`Lepas jadwal <strong>${toRemove.length} orang</strong> dari hari ini?<br><span style="font-size:11px;color:rgba(255,255,255,0.4);">Data intern tetap ada, hanya jadwal hari ini yang dihapus.</span>`, async () => {
+    showLoading(true,'Melepas jadwal...');
     const {error} = await sb.from('jishusei_kenshin').delete().in('id', toRemove.map(s=>s.id));
     showLoading(false);
     if(error) return toast('❌ '+error.message);
     toRemove.forEach(s => { S.schedules = S.schedules.filter(x=>x.id!==s.id); });
     clearSelection();
     renderAll();
-    toast(`🗑 ${toRemove.length} jadwal dihapus`);
+    toast(`↩ ${toRemove.length} jadwal dilepas`);
   });
+}
+
+// ===== BULK DELETE INTERNS (permanent) =====
+async function bulkDeleteInterns() {
+  if(!S.selected.size) return;
+  const ids = [...S.selected];
+  const names = ids.map(iid => S.interns.find(i=>i.id===iid)?.name).filter(Boolean);
+  showConfirm(
+    `Hapus permanen <strong>${ids.length} orang</strong> dari kenshin?<br>` +
+    `<span style="font-size:11px;color:rgba(255,100,100,0.8);">${names.join(', ')}</span><br>` +
+    `<span style="font-size:11px;color:rgba(255,255,255,0.4);">Semua jadwal MCU mereka juga ikut terhapus. Tidak bisa dibatalkan.</span>`,
+    async () => {
+      showLoading(true,'Menghapus permanen...');
+      // delete all schedules for these interns first
+      await sb.from('jishusei_kenshin').delete().in('intern_id', ids);
+      // delete interns from kenshin_interns
+      const {error} = await sb.from('kenshin_interns').delete().in('id', ids);
+      showLoading(false);
+      if(error) return toast('❌ '+error.message);
+      S.interns = S.interns.filter(i => !ids.includes(i.id));
+      S.schedules = S.schedules.filter(s => !ids.includes(s.intern_id));
+      ids.forEach(id => S.orphanIds.delete(id));
+      clearSelection();
+      renderAll();
+      toast(`🗑 ${ids.length} orang dihapus permanen`);
+    }
+  );
 }
 
 // ===== OPEN ASSIGN MODAL (from FAB) =====
@@ -1202,10 +1242,13 @@ async function doSync() {
 
   showLoading(false);
 
+  // update orphanIds in state
+  S.orphanIds = new Set(removed.map(i => i.id));
+
   const lines = [];
   if(addedCount) lines.push(`✓ ${addedCount} pemagang baru ditambahkan`);
   if(updatedCount) lines.push(`↻ ${updatedCount} data diperbarui`);
-  if(removed.length) lines.push(`⚠ ${removed.length} orang tidak ada di Haichi (tidak dihapus otomatis)`);
+  if(removed.length) lines.push(`⚠ ${removed.length} orang tidak ada di Haichi:\n` + removed.map(i=>`  • ${i.name}`).join('\n') + '\n  → Pilih lalu hapus via mode Pilih');
   if(!lines.length) lines.push('✓ Semua sudah up-to-date. Tidak ada perubahan.');
 
   const el = document.getElementById('sync-result');
