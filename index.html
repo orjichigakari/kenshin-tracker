@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>健診スケジュール — Jishusei Kenshin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+:root {
+  --red: #E60012;
+  --red-dark: #b8000e;
+  --red-light: rgba(230,0,18,0.09);
+  --black: #1a1a1a;
+  --gray-dark: #3a3a3a;
+  --gray: #888;
+  --gray-light: #ccc;
+  --gray-bg: #f4f4f4;
+  --white: #ffffff;
+  --border: #e0e0e0;
+  --green: #007a3a;
+  --green-light: rgba(0,140,70,0.09);
+  --bg: #2b2d30;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.14);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.2);
+  --header-h: 48px;
+  --toolbar-h: 44px;
+  --daybar-h: 40px;
+  --filterbar-h: 36px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: var(--black); background: var(--bg); }
+body { display: flex; flex-direction: column; }
+
+/* ===== HEADER ===== */
+header {
+  height: var(--header-h); background: var(--white);
+  border-bottom: 2px solid var(--red);
+  display: flex; align-items: center; padding: 0 12px; gap: 10px;
+  position: relative; z-index: 100; box-shadow: var(--shadow-sm); flex-shrink: 0;
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-dot {
+  width: 24px; height: 24px; background: var(--red); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 11px; font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace; flex-shrink: 0;
+}
+.brand-text { font-size: 13px; font-weight: 700; color: var(--black); line-height: 1.1; }
+.brand-sub { font-size: 8px; color: var(--gray); font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }
+.header-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.stat-chips { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+.chip { padding: 3px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; }
+.chip.red { background: var(--red-light); color: var(--red); }
+.chip.green { background: var(--green-light); color: var(--green); }
+.chip.gray { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); }
+.btn-setting {
+  height: 30px; padding: 0 12px;
+  border: 1.5px solid var(--border); border-radius: 4px;
+  background: var(--gray-bg); color: var(--gray-dark);
+  font-size: 10px; font-weight: 700; font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.btn-setting:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+.btn-setting.active { background: var(--red); color: white; border-color: var(--red); }
+
+/* ===== TOOLBAR ===== */
+.toolbar {
+  height: var(--toolbar-h); background: var(--white); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 10px; gap: 8px;
+  flex-shrink: 0; box-shadow: var(--shadow-sm); position: relative; z-index: 90;
+}
+.search-wrap { flex: 1; position: relative; }
+.search-wrap input {
+  width: 100%; background: var(--gray-bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 28px 7px 28px;
+  font-size: 12px; font-family: 'Noto Sans JP', sans-serif;
+  color: var(--black); outline: none; transition: border-color 0.15s;
+}
+.search-wrap input:focus { border-color: var(--red); background: var(--white); }
+.search-wrap input::placeholder { color: var(--gray); }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 13px; pointer-events: none; }
+.search-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--gray-light); border: none; cursor: pointer;
+  font-size: 10px; color: #666; display: none; align-items: center; justify-content: center;
+}
+.search-clear.visible { display: flex; }
+.search-clear:hover { background: var(--red); color: white; }
+.btn-select-toggle {
+  height: 28px; padding: 0 12px; border-radius: 4px;
+  border: 1.5px solid var(--border); background: var(--gray-bg);
+  color: var(--gray-dark); font-size: 11px; font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace; cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  flex-shrink: 0;
+}
+.btn-select-toggle:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+body.select-mode .btn-select-toggle { background: var(--red); color: white; border-color: var(--red); }
+
+/* ===== DAY TAB BAR ===== */
+.day-bar {
+  height: var(--daybar-h); background: #1e1f23;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: stretch;
+  flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+}
+.day-bar::-webkit-scrollbar { display: none; }
+.day-tab {
+  flex: 1; min-width: 56px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; gap: 1px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  padding: 4px 6px;
+  user-select: none;
+}
+.day-tab:hover { background: rgba(255,255,255,0.05); }
+.day-tab.active { border-bottom-color: var(--red); background: rgba(230,0,18,0.08); }
+.day-kanji { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.7); font-family: 'IBM Plex Mono', monospace; }
+.day-tab.active .day-kanji { color: var(--red); }
+.day-label { font-size: 8px; color: rgba(255,255,255,0.3); font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.06em; }
+.day-tab.active .day-label { color: rgba(230,0,18,0.7); }
+.day-count { font-size: 8px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.2); }
+.day-tab.active .day-count { color: rgba(230,0,18,0.5); }
+
+/* ===== FILTER BAR ===== */
+.filter-bar {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; flex-shrink: 0;
+  min-height: var(--filterbar-h); z-index: 88;
+}
+.filter-scroll {
+  flex: 1; padding: 4px 10px; display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.filter-scroll::-webkit-scrollbar { display: none; }
+.filter-label { font-size: 9px; font-weight: 700; color: var(--gray); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
+.fchip {
+  padding: 3px 10px; border-radius: 10px; font-size: 10px; font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace; cursor: pointer; white-space: nowrap;
+  border: 1.5px solid var(--border); background: var(--gray-bg); color: var(--gray-dark);
+  transition: all 0.15s; flex-shrink: 0;
+}
+.fchip:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+.fchip.active { border-color: var(--red); color: white; background: var(--red); }
+.fchip.all-chip.active { background: var(--gray-dark); border-color: var(--gray-dark); color: white; }
+.fchip.k1 { border-color: rgba(80,140,255,0.35); color: rgba(100,160,255,0.9); background: rgba(80,140,255,0.06); }
+.fchip.k1.active { background: rgba(70,120,230,0.85); border-color: rgba(70,120,230,0.85); color: white; }
+.fchip.k2 { border-color: rgba(230,0,18,0.3); color: rgba(220,50,50,0.9); background: rgba(230,0,18,0.05); }
+.fchip.k2.active { background: rgba(200,0,12,0.85); border-color: rgba(200,0,12,0.85); color: white; }
+.fchip.done-f { border-color: rgba(0,196,106,0.35); color: rgba(0,160,80,0.9); background: rgba(0,140,70,0.05); }
+.fchip.done-f.active { background: #007a3a; border-color: #007a3a; color: white; }
+.fchip.undone-f { border-color: rgba(230,0,18,0.3); color: rgba(200,0,12,0.8); background: rgba(230,0,18,0.05); }
+.fchip.undone-f.active { background: #E60012; border-color: #E60012; color: white; }
+.filter-divider { width:1px; height:16px; background:rgba(0,0,0,0.1); flex-shrink:0; margin:0 2px; }
+
+/* ===== SETTING BAR ===== */
+.setting-bar {
+  display: none; background: #1a1a1e; border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 10px; gap: 6px; flex-wrap: wrap; align-items: center; flex-shrink: 0;
+}
+body.setting-mode .setting-bar { display: flex; }
+.sbar-btn {
+  padding: 5px 10px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace; cursor: pointer; white-space: nowrap;
+  transition: all 0.15s; display: flex; align-items: center; gap: 5px;
+}
+.sbar-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+.sbar-btn.sync { border-color: rgba(0,140,70,0.4); color: rgba(0,196,106,0.8); }
+.sbar-btn.sync:hover { background: rgba(0,140,70,0.15); color: #00c46a; border-color: #00c46a; }
+.sbar-btn.danger { border-color: rgba(200,0,12,0.3); color: rgba(230,0,18,0.7); }
+.sbar-btn.danger:hover { background: rgba(200,0,12,0.2); color: var(--red); border-color: var(--red); }
+
+/* ===== APP BODY ===== */
+.app-body {
+  overflow-y: auto; overflow-x: hidden;
+  padding: 10px;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+body.setting-mode .app-body { flex: 1; }
+.app-body::-webkit-scrollbar { width: 4px; }
+.app-body::-webkit-scrollbar-track { background: transparent; }
+.app-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+/* ===== UNASSIGNED POOL ===== */
+.pool-section {
+  margin-bottom: 10px;
+  background: rgba(80,160,255,0.04);
+  border: 1px solid rgba(80,160,255,0.18);
+  border-radius: 8px; overflow: hidden;
+}
+.pool-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer;
+  background: rgba(60,130,220,0.18);
+  user-select: none; transition: background 0.15s;
+}
+.pool-header:hover { background: rgba(60,130,220,0.28); }
+.pool-chevron { font-size: 10px; color: rgba(120,180,255,0.7); transition: transform 0.2s; flex-shrink: 0; width: 12px; }
+.pool-section.open .pool-chevron { transform: rotate(90deg); }
+.pool-title { font-size: 12px; font-weight: 700; color: rgba(140,200,255,0.9); font-family: 'IBM Plex Mono', monospace; flex: 1; }
+.pool-badge { font-size: 9px; font-family: 'IBM Plex Mono', monospace; padding: 2px 7px; border-radius: 8px; background: rgba(80,160,255,0.12); color: rgba(140,200,255,0.7); }
+.pool-body { display: none; padding: 8px 10px 10px; }
+.pool-section.open .pool-body { display: block; }
+
+/* intern chips — block style, wrap to next line */
+.intern-chips-wrap {
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+
+/* ===== INTERN CHIP ===== */
+.intern-chip {
+  display: inline-flex; flex-direction: column;
+  padding: 5px 8px; border-radius: 6px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  cursor: pointer; transition: all 0.15s;
+  min-width: 80px; max-width: 140px;
+  user-select: none;
+  position: relative;
+}
+.intern-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+.intern-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
+.intern-chip.done { background: rgba(0,140,70,0.15); border-color: rgba(0,196,106,0.3); }
+.intern-chip.done .chip-name { color: rgba(255,255,255,0.35); text-decoration: line-through; }
+.intern-chip.unassigned-chip { background: rgba(60,130,220,0.1); border-color: rgba(80,160,255,0.25); }
+.intern-chip.unassigned-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
+
+.chip-name {
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.88);
+  line-height: 1.2; word-break: break-all;
+}
+.chip-meta {
+  display: flex; gap: 4px; align-items: center; margin-top: 3px; flex-wrap: wrap;
+}
+.chip-batch {
+  font-size: 8px; font-family: 'IBM Plex Mono', monospace;
+  color: rgba(255,255,255,0.3); white-space: nowrap;
+}
+.chip-factory {
+  font-size: 8px; font-family: 'IBM Plex Mono', monospace;
+  color: rgba(255,255,255,0.25); white-space: nowrap;
+}
+.chip-shift-dot {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+}
+.chip-shift-dot.k1 { background: rgba(80,140,255,0.7); }
+.chip-shift-dot.k2 { background: rgba(230,0,18,0.7); }
+.chip-done-mark {
+  font-size: 8px; color: #00c46a; font-family: 'IBM Plex Mono', monospace;
+  margin-left: auto;
+}
+.intern-chip.selected::after {
+  content: '✓'; position: absolute; top: 3px; right: 5px;
+  font-size: 9px; color: var(--red); font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+}
+
+/* ===== TIME SLOT SECTION ===== */
+.slot-section {
+  margin-bottom: 8px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; overflow: hidden;
+}
+.slot-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer;
+  background: rgba(255,255,255,0.06);
+  user-select: none; transition: background 0.15s;
+  position: sticky; top: -10px; z-index: 5;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.slot-header:hover { background: rgba(255,255,255,0.1); }
+.slot-chevron { font-size: 10px; color: rgba(255,255,255,0.3); transition: transform 0.2s; flex-shrink: 0; width: 12px; }
+.slot-section.open .slot-chevron { transform: rotate(90deg); }
+.slot-time {
+  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.85);
+  font-family: 'IBM Plex Mono', monospace; flex-shrink: 0; min-width: 44px;
+}
+.slot-count-chip {
+  font-size: 9px; font-family: 'IBM Plex Mono', monospace;
+  padding: 2px 7px; border-radius: 8px;
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4);
+}
+.slot-done-chip {
+  font-size: 9px; font-family: 'IBM Plex Mono', monospace;
+  padding: 2px 7px; border-radius: 8px;
+  background: rgba(0,140,70,0.15); color: rgba(0,196,106,0.7);
+  display: none;
+}
+.slot-done-chip.visible { display: inline; }
+.slot-add-btn {
+  margin-left: auto; height: 22px; padding: 0 8px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.12); background: transparent;
+  color: rgba(255,255,255,0.3); font-size: 9px; font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer; display: none; transition: all 0.15s; white-space: nowrap;
+}
+.slot-add-btn:hover { background: rgba(230,0,18,0.2); color: var(--red); border-color: var(--red); }
+body.select-mode .slot-add-btn { display: flex; align-items: center; }
+.slot-body { display: none; padding: 8px 10px 10px; }
+.slot-section.open .slot-body { display: block; }
+.slot-empty { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.18); padding: 6px 0; font-style: italic; }
+
+/* ===== FAB BAR ===== */
+.fab-bar {
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: #1e1f23; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px; padding: 8px 10px;
+  display: none; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 250;
+  max-width: calc(100vw - 24px);
+}
+.fab-bar.show { display: flex; }
+.fab-count { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.5); padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+.fab-btn { height: 32px; padding: 0 10px; border-radius: 6px; border: none; font-size: 10px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.fab-btn.assign { background: rgba(230,160,0,0.9); color: white; }
+.fab-btn.assign:hover { background: rgba(200,130,0,0.9); }
+.fab-btn.done-fab { background: rgba(0,140,70,0.9); color: white; }
+.fab-btn.done-fab:hover { background: #007a3a; }
+.fab-btn.remove { background: rgba(200,0,12,0.75); color: white; border: 1px solid rgba(200,0,12,0.5); }
+.fab-btn.remove:hover { background: rgba(200,0,12,0.95); }
+.fab-btn.cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); }
+.fab-btn.cancel:hover { background: rgba(255,255,255,0.12); color: white; }
+
+/* ===== INTERN CHIP CHECKBOX ===== */
+body.select-mode .intern-chip { cursor: pointer; }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); z-index: 200;
+  align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(3px);
+}
+.modal-overlay.open { display: flex; }
+.modal { background: #1e1f23; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; width: 100%; max-width: 380px; box-shadow: var(--shadow-lg); overflow: visible; display: flex; flex-direction: column; max-height: 90vh; }
+.modal-header { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-radius: 10px 10px 0 0; }
+.modal-title { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.9); }
+.modal-close { width: 24px; height: 24px; border-radius: 4px; border: none; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.modal-close:hover { background: rgba(255,255,255,0.15); color: white; }
+.modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.07); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; border-radius: 0 0 10px 10px; }
+.modal-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+.modal-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; color: rgba(255,255,255,0.9); outline: none; transition: border-color 0.15s; }
+.modal-input:focus { border-color: var(--red); }
+.modal-input::placeholder { color: rgba(255,255,255,0.2); }
+.modal-select { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; color: rgba(255,255,255,0.9); outline: none; appearance: none; cursor: pointer; }
+.modal-select option { background: #1e1f23; color: white; }
+.modal-hint { font-size: 10px; color: rgba(255,255,255,0.3); line-height: 1.5; font-family: 'IBM Plex Mono', monospace; }
+.btn-cancel { padding: 8px 16px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; transition: all 0.15s; }
+.btn-cancel:hover { background: rgba(255,255,255,0.12); color: white; }
+.btn-confirm { padding: 8px 16px; border-radius: 5px; border: none; background: var(--red); color: white; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s; }
+.btn-confirm:hover { background: var(--red-dark); }
+.btn-confirm.green-btn { background: var(--green); }
+.btn-confirm.green-btn:hover { background: #005a2a; }
+.confirm-msg { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6; padding: 4px 0; }
+.confirm-msg strong { color: var(--red); }
+
+/* Assign slot list */
+.slot-pick-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+.slot-pick-btn {
+  padding: 9px 14px; text-align: left;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.75); font-size: 12px; cursor: pointer;
+  transition: background 0.12s; font-family: 'IBM Plex Mono', monospace;
+  display: flex; align-items: center; gap: 8px;
+}
+.slot-pick-btn:hover { background: rgba(230,0,18,0.18); color: white; border-color: rgba(230,0,18,0.3); }
+.slot-pick-btn .spb-count { font-size: 9px; color: rgba(255,255,255,0.3); margin-left: auto; }
+.slot-pick-btn.day-header { background: #2a2a30; cursor: default; color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 0.08em; }
+.slot-pick-btn.day-header:hover { background: #2a2a30; color: rgba(255,255,255,0.4); }
+
+/* sync result */
+.sync-result {
+  background: rgba(0,140,70,0.08); border: 1px solid rgba(0,196,106,0.2);
+  border-radius: 6px; padding: 10px 12px; font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace; color: rgba(0,196,106,0.8);
+  line-height: 1.6; display: none; white-space: pre-wrap;
+}
+.sync-result.visible { display: block; }
+
+/* ===== TOAST ===== */
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e1f23; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 8px 16px; font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.8); white-space: nowrap; z-index: 300; box-shadow: var(--shadow-md); transition: transform 0.25s ease, opacity 0.25s ease; opacity: 0; }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ===== LOADING ===== */
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+.loading-overlay.open { display: flex; }
+.loading-spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--red); animation: spin 0.7s linear infinite; }
+.loading-text { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.4); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* icon btn */
+.icon-btn { width: 24px; height: 24px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+.icon-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+.icon-btn.danger:hover { background: rgba(200,0,12,0.5); border-color: rgba(200,0,12,0.6); color: white; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 12px; text-align: center; }
+.empty-icon { font-size: 40px; opacity: 0.4; }
+.empty-text { font-size: 13px; color: rgba(255,255,255,0.3); line-height: 1.6; }
+
+/* batch filter chips in pool group */
+.ua-batch-label { font-size: 9px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: rgba(140,200,255,0.4); letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 2px 4px; border-bottom: 1px solid rgba(80,160,255,0.1); margin-bottom: 6px; }
+.batch-group { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">Memuat data...</div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <div class="brand-dot">健</div>
+    <div>
+      <div class="brand-text">Jishusei Kenshin</div>
+      <div class="brand-sub">健診スケジュール</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="stat-chips">
+      <span class="chip green" id="chip-done">0 ✓</span>
+      <span class="chip red" id="chip-left">0 belum</span>
+      <span class="chip gray" id="chip-pool">0 📋</span>
+    </div>
+    <button class="btn-setting" id="btn-setting" onclick="toggleSettingMode()">⚙ Setting</button>
+  </div>
+</header>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Cari nama pemagang..." oninput="onSearchInput()">
+    <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+  </div>
+  <button class="btn-select-toggle" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Pilih</button>
+</div>
+
+<!-- DAY TAB BAR -->
+<div class="day-bar" id="day-bar">
+  <div class="day-tab" data-day="mon" onclick="setDay('mon')">
+    <span class="day-kanji">月</span><span class="day-label">Senin</span><span class="day-count" id="dc-mon">0</span>
+  </div>
+  <div class="day-tab" data-day="tue" onclick="setDay('tue')">
+    <span class="day-kanji">火</span><span class="day-label">Selasa</span><span class="day-count" id="dc-tue">0</span>
+  </div>
+  <div class="day-tab" data-day="wed" onclick="setDay('wed')">
+    <span class="day-kanji">水</span><span class="day-label">Rabu</span><span class="day-count" id="dc-wed">0</span>
+  </div>
+  <div class="day-tab" data-day="thu" onclick="setDay('thu')">
+    <span class="day-kanji">木</span><span class="day-label">Kamis</span><span class="day-count" id="dc-thu">0</span>
+  </div>
+  <div class="day-tab" data-day="fri" onclick="setDay('fri')">
+    <span class="day-kanji">金</span><span class="day-label">Jumat</span><span class="day-count" id="dc-fri">0</span>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <div class="filter-scroll">
+    <span class="filter-label">BATCH</span>
+    <span class="fchip all-chip active" id="fchip-batch-all" onclick="setBatchFilter('all')">Semua</span>
+    <div id="batch-chips-wrap" style="display:contents;"></div>
+    <div class="filter-divider"></div>
+    <span class="filter-label">KOJO</span>
+    <span class="fchip all-chip active" id="fchip-kojo-all" onclick="setKojoFilter('all')">Semua</span>
+    <span class="fchip k1" id="fchip-k1" onclick="setKojoFilter('kojo1')">Kojo 1</span>
+    <span class="fchip k2" id="fchip-k2" onclick="setKojoFilter('kojo2')">Kojo 2</span>
+    <div class="filter-divider"></div>
+    <span class="fchip done-f" id="fchip-done" onclick="setDoneFilter('done')">✓ Sudah</span>
+    <span class="fchip undone-f" id="fchip-undone" onclick="setDoneFilter('undone')">✗ Belum</span>
+  </div>
+</div>
+
+<!-- SETTING BAR -->
+<div class="setting-bar">
+  <button class="sbar-btn sync" onclick="openSyncModal()">↻ Sync dari Haichi</button>
+  <button class="sbar-btn danger" onclick="confirmResetDone()">↺ Reset Status</button>
+  <button class="sbar-btn danger" onclick="confirmResetSchedules()">🗑 Reset Jadwal</button>
+</div>
+
+<!-- EXPAND/COLLAPSE BAR -->
+<div style="background:#1e1f23;border-bottom:1px solid rgba(255,255,255,0.06);padding:5px 10px;display:flex;gap:6px;flex-shrink:0;">
+  <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:rgba(255,255,255,0.3);align-self:center;letter-spacing:0.08em;text-transform:uppercase;flex:1;">JAM MCU</span>
+  <button onclick="expandAllSlots()" style="padding:3px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);font-size:9px;font-family:'IBM Plex Mono',monospace;cursor:pointer;">▼ Buka Semua</button>
+  <button onclick="collapseAllSlots()" style="padding:3px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);font-size:9px;font-family:'IBM Plex Mono',monospace;cursor:pointer;">▲ Tutup Semua</button>
+</div>
+
+<!-- APP BODY -->
+<div class="app-body" id="app-body">
+  <div id="pool-section-wrap"></div>
+  <div id="slot-list"></div>
+  <div class="empty-state" id="empty-state" style="display:none;">
+    <div class="empty-icon">🏥</div>
+    <div class="empty-text">Belum ada data.<br>Aktifkan Setting lalu Sync dari Haichi.</div>
+  </div>
+</div>
+
+<!-- FAB BAR -->
+<div class="fab-bar" id="fab-bar">
+  <span class="fab-count" id="fab-count">0 dipilih</span>
+  <button class="fab-btn assign" onclick="openAssignModal()">📋 Assign Jam</button>
+  <button class="fab-btn done-fab" onclick="bulkToggleDone()">✓ Toggle Done</button>
+  <button class="fab-btn remove" onclick="bulkRemoveFromSlot()">🗑 Lepas Slot</button>
+  <button class="fab-btn cancel" onclick="clearSelection()">✕</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Sync Modal -->
+<div class="modal-overlay" id="modal-sync">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">↻ Sync dari Haichi</span>
+      <button class="modal-close" onclick="closeModal('modal-sync')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">
+        Import & update data pemagang dari Haichi. Data yang sudah ada akan di-update jika ada perubahan. Pemagang yang tidak lagi ada di Haichi akan ditandai.
+      </p>
+      <div class="sync-result" id="sync-result"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-sync')">Tutup</button>
+      <button class="btn-confirm green-btn" id="btn-do-sync" onclick="doSync()">↻ Mulai Sync</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Slot Modal -->
+<div class="modal-overlay" id="modal-assign">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📋 Assign ke Jam</span>
+      <button class="modal-close" onclick="closeModal('modal-assign')">✕</button>
+    </div>
+    <div style="padding:10px 16px 6px;flex-shrink:0;">
+      <p style="font-size:11px;color:rgba(255,255,255,0.4);" id="assign-label"></p>
+    </div>
+    <div class="modal-body" style="padding-top:6px;">
+      <div>
+        <div class="modal-label">Hari</div>
+        <select class="modal-select" id="assign-day-select">
+          <option value="mon">月 Senin</option>
+          <option value="tue">火 Selasa</option>
+          <option value="wed">水 Rabu</option>
+          <option value="thu">木 Kamis</option>
+          <option value="fri">金 Jumat</option>
+        </select>
+      </div>
+      <div>
+        <div class="modal-label">Jam MCU</div>
+        <select class="modal-select" id="assign-time-select"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-assign')">Batal</button>
+      <button class="btn-confirm" onclick="doAssign()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Konfirmasi</span>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-msg" id="confirm-msg"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-confirm')">Batal</button>
+      <button class="btn-confirm" id="confirm-ok-btn">Ya, lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const SUPABASE_URL  = 'https://zxecdtzmwaqnkskbelkv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4ZWNkdHptd2Fxbmtza2JlbGt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1Nzk1ODMsImV4cCI6MjA5MDE1NTU4M30.nqAdt5NNQQsV1C0N6pO4Gn4I1m-0mgf513T21vI8mEc';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ===== TIME SLOTS =====
+// 08:15 – 09:45, skip 10:00–11:45, 12:00 – 15:45 — interval 15 min
+function buildSlots() {
+  const slots = [];
+  const add = (h, m) => slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+  // Morning: 08:15 – 09:45
+  for(let h=8; h<=9; h++) {
+    const startM = (h===8) ? 15 : 0;
+    const endM   = (h===9) ? 45 : 45;
+    for(let m=startM; m<=endM; m+=15) add(h,m);
+  }
+  // Afternoon: 12:00 – 15:45
+  for(let h=12; h<=15; h++) {
+    const endM = (h===15) ? 45 : 45;
+    for(let m=0; m<=endM; m+=15) add(h,m);
+  }
+  return slots;
+}
+const TIME_SLOTS = buildSlots();
+
+const DAYS = [
+  { key:'mon', kanji:'月', label:'Senin' },
+  { key:'tue', kanji:'火', label:'Selasa' },
+  { key:'wed', kanji:'水', label:'Rabu' },
+  { key:'thu', kanji:'木', label:'Kamis' },
+  { key:'fri', kanji:'金', label:'Jumat' },
+];
+
+// ===== STATE =====
+let S = {
+  interns: [],        // snapshot from kenshin_interns (cached haichi data)
+  schedules: [],      // [{id, intern_id, day, mcu_time, done}]
+  activeDay: 'mon',
+  batchFilter: 'all', // 'all' | batch string
+  kojoFilter: 'all',  // 'all' | 'kojo1' | 'kojo2'
+  doneFilter: 'all',  // 'all' | 'done' | 'undone'
+  selectMode: false,
+  selected: new Set(), // intern_id strings
+  settingMode: false,
+  openSlots: new Set(),
+  poolOpen: true,
+};
+
+// ===== FETCH =====
+async function fetchAll() {
+  showLoading(true, 'Memuat data...');
+  const [iRes, sRes] = await Promise.all([
+    sb.from('kenshin_interns').select('*').order('name'),
+    sb.from('jishusei_kenshin').select('*'),
+  ]);
+  S.interns   = iRes.data || [];
+  S.schedules = sRes.data || [];
+  showLoading(false);
+}
+
+// ===== LOADING =====
+function showLoading(v, msg='') {
+  document.getElementById('loading-overlay').classList.toggle('open', v);
+  if(msg) document.getElementById('loading-text').textContent = msg;
+}
+
+// ===== TOAST =====
+let toastTimer;
+function toast(msg, dur=2400) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ===== MODAL =====
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+});
+
+// ===== SETTING MODE =====
+function toggleSettingMode() {
+  S.settingMode = !S.settingMode;
+  document.body.classList.toggle('setting-mode', S.settingMode);
+  document.getElementById('btn-setting').classList.toggle('active', S.settingMode);
+}
+
+// ===== DAY =====
+function setDay(day) {
+  S.activeDay = day;
+  document.querySelectorAll('.day-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.day === day);
+  });
+  renderAll();
+}
+
+// ===== FILTERS =====
+function setBatchFilter(val) {
+  S.batchFilter = val;
+  document.getElementById('fchip-batch-all').classList.toggle('active', val==='all');
+  document.querySelectorAll('.fchip-batch').forEach(c => {
+    c.classList.toggle('active', c.dataset.batch === val);
+  });
+  renderAll();
+}
+
+function setKojoFilter(val) {
+  S.kojoFilter = val;
+  document.getElementById('fchip-kojo-all').classList.toggle('active', val==='all');
+  document.getElementById('fchip-k1').classList.toggle('active', val==='kojo1');
+  document.getElementById('fchip-k2').classList.toggle('active', val==='kojo2');
+  renderAll();
+}
+
+function setDoneFilter(val) {
+  if(S.doneFilter === val) { S.doneFilter = 'all'; }
+  else { S.doneFilter = val; }
+  document.getElementById('fchip-done').classList.toggle('active', S.doneFilter==='done');
+  document.getElementById('fchip-undone').classList.toggle('active', S.doneFilter==='undone');
+  renderAll();
+}
+
+// ===== SEARCH =====
+function onSearchInput() {
+  const v = document.getElementById('search-input').value;
+  document.getElementById('search-clear').classList.toggle('visible', v.length > 0);
+  renderAll();
+}
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').classList.remove('visible');
+  renderAll();
+}
+
+// ===== SELECT MODE =====
+function toggleSelectMode() {
+  S.selectMode = !S.selectMode;
+  document.body.classList.toggle('select-mode', S.selectMode);
+  document.getElementById('btn-select-toggle').textContent = S.selectMode ? '✕ Selesai' : '☑ Pilih';
+  if(!S.selectMode) {
+    S.selected.clear();
+    document.getElementById('fab-bar').classList.remove('show');
+  }
+  renderAll();
+}
+
+function clearSelection() {
+  S.selected.clear();
+  document.getElementById('fab-bar').classList.remove('show');
+  document.getElementById('fab-count').textContent = '0 dipilih';
+  document.querySelectorAll('.intern-chip.selected').forEach(c => c.classList.remove('selected'));
+}
+
+function toggleSelect(internId) {
+  if(S.selected.has(internId)) S.selected.delete(internId);
+  else S.selected.add(internId);
+  const n = S.selected.size;
+  document.getElementById('fab-bar').classList.toggle('show', n > 0 && S.selectMode);
+  document.getElementById('fab-count').textContent = `${n} dipilih`;
+  document.querySelectorAll(`.intern-chip[data-intern-id="${internId}"]`).forEach(c => {
+    c.classList.toggle('selected', S.selected.has(internId));
+  });
+}
+
+// ===== HELPERS =====
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function getSchedule(internId, day) {
+  return S.schedules.find(s => s.intern_id === internId && s.day === day) || null;
+}
+
+function getScheduleBySlot(day, time) {
+  return S.schedules.filter(s => s.day === day && s.mcu_time === time);
+}
+
+function matchesFilters(intern) {
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  if(S.batchFilter !== 'all' && intern.batch !== S.batchFilter) return false;
+  if(S.kojoFilter !== 'all' && intern.factory !== S.kojoFilter) return false;
+  if(q && !intern.name.toLowerCase().includes(q)) return false;
+  return true;
+}
+
+function getBatches() {
+  return [...new Set(S.interns.map(i=>i.batch).filter(Boolean))]
+    .sort((a,b) => Number(a)-Number(b) || a.localeCompare(b));
+}
+
+// ===== RENDER BATCH FILTER CHIPS =====
+function renderBatchChips() {
+  const wrap = document.getElementById('batch-chips-wrap');
+  wrap.innerHTML = '';
+  getBatches().forEach(b => {
+    const c = document.createElement('span');
+    c.className = 'fchip fchip-batch' + (S.batchFilter===b?' active':'');
+    c.dataset.batch = b;
+    c.textContent = b;
+    c.onclick = () => setBatchFilter(S.batchFilter===b ? 'all' : b);
+    wrap.appendChild(c);
+  });
+}
+
+// ===== RENDER DAY COUNTS =====
+function renderDayCounts() {
+  DAYS.forEach(d => {
+    const count = S.schedules.filter(s => s.day === d.key).length;
+    const el = document.getElementById(`dc-${d.key}`);
+    if(el) el.textContent = count > 0 ? `${count}人` : '';
+  });
+}
+
+// ===== RENDER STATS =====
+function renderStats() {
+  const assigned = S.schedules.filter(s => s.day === S.activeDay);
+  const done = assigned.filter(s => s.done).length;
+  const left = assigned.length - done;
+  const pool = S.interns.filter(i => !S.schedules.find(s => s.intern_id === i.id && s.day === S.activeDay)).length;
+  document.getElementById('chip-done').textContent = `${done} ✓`;
+  document.getElementById('chip-left').textContent = `${left} belum`;
+  document.getElementById('chip-pool').textContent = `${pool} 📋`;
+}
+
+// ===== MAKE INTERN CHIP =====
+function makeChip(intern, schEntry) {
+  const isDone = schEntry ? schEntry.done : false;
+  const isK2 = intern.factory === 'kojo2';
+  const isSel = S.selected.has(intern.id);
+
+  const chip = document.createElement('div');
+  chip.className = 'intern-chip' + (isDone?' done':'') + (!schEntry?' unassigned-chip':'') + (isSel?' selected':'');
+  chip.dataset.internId = intern.id;
+
+  const deptShort = (intern.dept||'').replace('Kumitate','組').replace('Bode','ボ').replace('Toso','塗');
+
+  chip.innerHTML = `
+    <span class="chip-name">${esc(intern.name)}</span>
+    <div class="chip-meta">
+      <span class="chip-shift-dot ${isK2?'k2':'k1'}"></span>
+      <span class="chip-batch">${esc(intern.batch||'–')}</span>
+      <span class="chip-factory">${esc(deptShort||intern.factory||'')}</span>
+      ${isDone ? '<span class="chip-done-mark">✓</span>' : ''}
+    </div>
+  `;
+
+  chip.addEventListener('click', e => {
+    e.stopPropagation();
+    if(S.selectMode) { toggleSelect(intern.id); return; }
+    // quick toggle done if already assigned
+    if(schEntry) { quickToggleDone(schEntry.id); }
+  });
+
+  return chip;
+}
+
+// ===== RENDER POOL (Unassigned for active day) =====
+function renderPool() {
+  const wrap = document.getElementById('pool-section-wrap');
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+
+  // interns not assigned to activeDay
+  const unassigned = S.interns.filter(i => {
+    const hasSlot = S.schedules.find(s => s.intern_id===i.id && s.day===S.activeDay);
+    if(hasSlot) return false;
+    if(!matchesFilters(i)) return false;
+    if(S.doneFilter !== 'all') return false; // pool is always undone
+    return true;
+  });
+
+  if(unassigned.length === 0) { wrap.innerHTML=''; return; }
+
+  // group by batch
+  const byBatch = {};
+  unassigned.forEach(i => {
+    const b = i.batch || '–';
+    if(!byBatch[b]) byBatch[b] = [];
+    byBatch[b].push(i);
+  });
+
+  const sec = document.createElement('div');
+  sec.className = 'pool-section' + (S.poolOpen?' open':'');
+
+  sec.innerHTML = `
+    <div class="pool-header" onclick="togglePool()">
+      <span class="pool-chevron">▶</span>
+      <span class="pool-title">📋 Belum Ada Jadwal</span>
+      <span class="pool-badge">${unassigned.length} orang</span>
+    </div>
+    <div class="pool-body" id="pool-body"></div>
+  `;
+
+  const body = sec.querySelector('#pool-body');
+
+  Object.entries(byBatch).sort((a,b)=>Number(a[0])-Number(b[0])||a[0].localeCompare(b[0])).forEach(([batch, interns]) => {
+    const grp = document.createElement('div');
+    grp.className = 'batch-group';
+    grp.innerHTML = `<div class="ua-batch-label">Batch ${batch}</div>`;
+    const chipsWrap = document.createElement('div');
+    chipsWrap.className = 'intern-chips-wrap';
+    interns.forEach(i => chipsWrap.appendChild(makeChip(i, null)));
+    grp.appendChild(chipsWrap);
+    body.appendChild(grp);
+  });
+
+  wrap.innerHTML = '';
+  wrap.appendChild(sec);
+}
+
+function togglePool() {
+  S.poolOpen = !S.poolOpen;
+  const sec = document.querySelector('.pool-section');
+  if(sec) sec.classList.toggle('open', S.poolOpen);
+}
+
+// ===== RENDER SLOT SECTIONS =====
+function renderSlots() {
+  const container = document.getElementById('slot-list');
+  container.innerHTML = '';
+
+  // collect which slots have interns on activeDay
+  const slotsWithData = new Set(
+    S.schedules.filter(s=>s.day===S.activeDay).map(s=>s.mcu_time)
+  );
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+
+  // Show all time slots (at least those with data; in setting mode show all)
+  const slotsToShow = TIME_SLOTS.filter(t => slotsWithData.has(t) || S.settingMode);
+
+  if(slotsToShow.length === 0) {
+    // only show empty state if pool also empty
+    const hasPool = S.interns.some(i => !S.schedules.find(s=>s.intern_id===i.id && s.day===S.activeDay));
+    if(!hasPool) {
+      document.getElementById('empty-state').style.display = 'flex';
+    } else {
+      document.getElementById('empty-state').style.display = 'none';
+    }
+    return;
+  }
+  document.getElementById('empty-state').style.display = 'none';
+
+  TIME_SLOTS.forEach(time => {
+    const slotSchedules = S.schedules.filter(s => s.day===S.activeDay && s.mcu_time===time);
+
+    // filter interns in this slot
+    const visible = slotSchedules.filter(s => {
+      const intern = S.interns.find(i=>i.id===s.intern_id);
+      if(!intern) return false;
+      if(!matchesFilters(intern)) return false;
+      if(S.doneFilter==='done' && !s.done) return false;
+      if(S.doneFilter==='undone' && s.done) return false;
+      return true;
+    });
+
+    // hide empty slots unless setting mode or has data
+    if(slotSchedules.length===0 && !S.settingMode) return;
+    if(visible.length===0 && (S.batchFilter!=='all'||S.kojoFilter!=='all'||S.doneFilter!=='all'||q)) {
+      if(!S.settingMode) return;
+    }
+
+    const isOpen = S.openSlots.has(time);
+    const doneCount = slotSchedules.filter(s=>s.done).length;
+    const totalCount = slotSchedules.length;
+
+    const sec = document.createElement('div');
+    sec.className = 'slot-section' + (isOpen?' open':'');
+    sec.dataset.time = time;
+
+    sec.innerHTML = `
+      <div class="slot-header" onclick="toggleSlot('${time}')">
+        <span class="slot-chevron">▶</span>
+        <span class="slot-time">${time}</span>
+        <span class="slot-count-chip">${totalCount}人</span>
+        <span class="slot-done-chip ${doneCount>0?'visible':''}">✓ ${doneCount}</span>
+        <button class="slot-add-btn" onclick="openAssignToSlot(event,'${time}')">+ Assign</button>
+      </div>
+      <div class="slot-body" id="slot-body-${time.replace(':','-')}"></div>
+    `;
+
+    const body = sec.querySelector(`#slot-body-${time.replace(':','-')}`);
+    if(visible.length === 0 && isOpen) {
+      body.innerHTML = `<div class="slot-empty">Tidak ada yang cocok dengan filter.</div>`;
+    } else {
+      const wrap = document.createElement('div');
+      wrap.className = 'intern-chips-wrap';
+      visible.forEach(s => {
+        const intern = S.interns.find(i=>i.id===s.intern_id);
+        if(intern) wrap.appendChild(makeChip(intern, s));
+      });
+      body.appendChild(wrap);
+    }
+
+    container.appendChild(sec);
+  });
+}
+
+function toggleSlot(time) {
+  if(S.openSlots.has(time)) S.openSlots.delete(time);
+  else S.openSlots.add(time);
+  renderSlots();
+}
+
+function expandAllSlots() {
+  TIME_SLOTS.forEach(t => S.openSlots.add(t));
+  renderSlots();
+}
+
+function collapseAllSlots() {
+  S.openSlots.clear();
+  renderSlots();
+}
+
+// ===== RENDER ALL =====
+function renderAll() {
+  renderBatchChips();
+  renderDayCounts();
+  renderStats();
+  renderPool();
+  renderSlots();
+}
+
+// ===== QUICK TOGGLE DONE =====
+async function quickToggleDone(scheduleId) {
+  const s = S.schedules.find(x=>x.id===scheduleId);
+  if(!s) return;
+  const newVal = !s.done;
+  const {error} = await sb.from('jishusei_kenshin').update({done:newVal}).eq('id',scheduleId);
+  if(error) return toast('❌ '+error.message);
+  s.done = newVal;
+  renderAll();
+  toast(newVal ? '✓ Selesai' : '↩ Dibatalkan');
+}
+
+// ===== BULK TOGGLE DONE =====
+async function bulkToggleDone() {
+  if(!S.selected.size) return;
+  const ids = [...S.selected];
+  // find schedules for selected interns on activeDay
+  const schIds = ids.map(iid => S.schedules.find(s=>s.intern_id===iid && s.day===S.activeDay)).filter(Boolean);
+  if(!schIds.length) { toast('Pilihan belum ada jadwal hari ini'); return; }
+  const newVal = schIds.some(s=>!s.done);
+  showLoading(true,'Updating...');
+  const {error} = await sb.from('jishusei_kenshin').update({done:newVal}).in('id', schIds.map(s=>s.id));
+  showLoading(false);
+  if(error) return toast('❌ '+error.message);
+  schIds.forEach(s=>s.done=newVal);
+  clearSelection();
+  renderAll();
+  toast(newVal ? `✓ ${schIds.length} orang ditandai selesai` : `↩ ${schIds.length} orang di-reset`);
+}
+
+// ===== BULK REMOVE FROM SLOT =====
+async function bulkRemoveFromSlot() {
+  if(!S.selected.size) return;
+  const ids = [...S.selected];
+  const toRemove = ids.map(iid => S.schedules.find(s=>s.intern_id===iid && s.day===S.activeDay)).filter(Boolean);
+  if(!toRemove.length) { toast('Tidak ada yang bisa dilepas'); return; }
+  showConfirm(`Lepas jadwal <strong>${toRemove.length} orang</strong> dari hari ini?`, async () => {
+    showLoading(true,'Menghapus...');
+    const {error} = await sb.from('jishusei_kenshin').delete().in('id', toRemove.map(s=>s.id));
+    showLoading(false);
+    if(error) return toast('❌ '+error.message);
+    toRemove.forEach(s => { S.schedules = S.schedules.filter(x=>x.id!==s.id); });
+    clearSelection();
+    renderAll();
+    toast(`🗑 ${toRemove.length} jadwal dihapus`);
+  });
+}
+
+// ===== OPEN ASSIGN MODAL (from FAB) =====
+function openAssignModal() {
+  if(!S.selected.size) return;
+  const n = S.selected.size;
+  document.getElementById('assign-label').textContent = `Assign ${n} orang ke jam:`;
+  document.getElementById('assign-day-select').value = S.activeDay;
+  populateTimeSelect();
+  openModal('modal-assign');
+}
+
+// ===== OPEN ASSIGN TO SLOT (from slot header) =====
+function openAssignToSlot(e, time) {
+  e.stopPropagation();
+  if(!S.selected.size) { toast('Pilih dulu nama yang mau di-assign'); return; }
+  const n = S.selected.size;
+  document.getElementById('assign-label').textContent = `Assign ${n} orang ke jam:`;
+  document.getElementById('assign-day-select').value = S.activeDay;
+  populateTimeSelect(time);
+  openModal('modal-assign');
+}
+
+function populateTimeSelect(preselect) {
+  const sel = document.getElementById('assign-time-select');
+  sel.innerHTML = '';
+  TIME_SLOTS.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    if(preselect && t===preselect) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ===== DO ASSIGN =====
+async function doAssign() {
+  const day = document.getElementById('assign-day-select').value;
+  const time = document.getElementById('assign-time-select').value;
+  const internIds = [...S.selected];
+  if(!internIds.length) return;
+
+  showLoading(true,'Menyimpan jadwal...');
+  let added=0, updated=0, skipped=0;
+
+  for(const internId of internIds) {
+    const existing = S.schedules.find(s=>s.intern_id===internId && s.day===day);
+    if(existing) {
+      // update time
+      if(existing.mcu_time===time) { skipped++; continue; }
+      const {error} = await sb.from('jishusei_kenshin').update({mcu_time:time}).eq('id',existing.id);
+      if(!error) { existing.mcu_time=time; updated++; }
+    } else {
+      // insert
+      const {data, error} = await sb.from('jishusei_kenshin')
+        .insert({intern_id:internId, day, mcu_time:time, done:false})
+        .select().single();
+      if(!error && data) { S.schedules.push(data); added++; }
+    }
+  }
+
+  showLoading(false);
+  closeModal('modal-assign');
+  clearSelection();
+  if(day !== S.activeDay) setDay(day);
+  else renderAll();
+
+  const parts = [];
+  if(added) parts.push(`${added} ditambahkan`);
+  if(updated) parts.push(`${updated} diupdate`);
+  if(skipped) parts.push(`${skipped} sama`);
+  toast(`📋 ${parts.join(', ')}`);
+}
+
+// ===== SYNC FROM HAICHI =====
+function openSyncModal() {
+  document.getElementById('sync-result').classList.remove('visible');
+  document.getElementById('sync-result').textContent = '';
+  document.getElementById('btn-do-sync').disabled = false;
+  openModal('modal-sync');
+}
+
+async function doSync() {
+  document.getElementById('btn-do-sync').disabled = true;
+  showLoading(true,'Membaca data Haichi...');
+
+  const {data: haichiRaw, error} = await sb.from('interns').select('id, data');
+  showLoading(false);
+  if(error) {
+    toast('❌ Gagal baca Haichi');
+    document.getElementById('btn-do-sync').disabled = false;
+    return;
+  }
+
+  // parse haichi interns
+  const haichi = haichiRaw.map(r => ({
+    haichi_id: r.id,
+    name: r.data?.name || '',
+    batch: r.data?.batch || null,
+    factory: r.data?.factory || null,
+    dept: r.data?.dept || null,
+    shift: r.data?.shift || null,
+  })).filter(r => r.name);
+
+  // build map of existing kenshin_interns by haichi_id
+  const existingMap = {};
+  S.interns.forEach(i => { existingMap[i.haichi_id] = i; });
+
+  const haichiIds = new Set(haichi.map(h=>h.haichi_id));
+  const existingIds = new Set(S.interns.map(i=>i.haichi_id));
+
+  const toAdd = haichi.filter(h => !existingIds.has(h.haichi_id));
+  const toUpdate = haichi.filter(h => {
+    if(!existingIds.has(h.haichi_id)) return false;
+    const ex = existingMap[h.haichi_id];
+    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory || ex.dept!==h.dept || ex.shift!==h.shift;
+  });
+  const removed = S.interns.filter(i => !haichiIds.has(i.haichi_id));
+
+  showLoading(true, 'Sync...');
+  let addedCount=0, updatedCount=0;
+
+  // insert new
+  if(toAdd.length) {
+    const inserts = toAdd.map(h=>({haichi_id:h.haichi_id,name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift}));
+    const {data:inserted, error:e} = await sb.from('kenshin_interns').insert(inserts).select();
+    if(!e && inserted) { S.interns.push(...inserted); addedCount=inserted.length; }
+  }
+
+  // update changed
+  for(const h of toUpdate) {
+    const {error:e} = await sb.from('kenshin_interns')
+      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift})
+      .eq('haichi_id', h.haichi_id);
+    if(!e) {
+      const ex = S.interns.find(i=>i.haichi_id===h.haichi_id);
+      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift});
+      updatedCount++;
+    }
+  }
+
+  showLoading(false);
+
+  const lines = [];
+  if(addedCount) lines.push(`✓ ${addedCount} pemagang baru ditambahkan`);
+  if(updatedCount) lines.push(`↻ ${updatedCount} data diperbarui`);
+  if(removed.length) lines.push(`⚠ ${removed.length} orang tidak ada di Haichi (tidak dihapus otomatis)`);
+  if(!lines.length) lines.push('✓ Semua sudah up-to-date. Tidak ada perubahan.');
+
+  const el = document.getElementById('sync-result');
+  el.textContent = lines.join('\n');
+  el.classList.add('visible');
+  document.getElementById('btn-do-sync').disabled = false;
+  renderAll();
+  toast('↻ Sync selesai');
+}
+
+// ===== RESET DONE STATUS =====
+function confirmResetDone() {
+  showConfirm('Reset <strong>semua status ✓ Selesai</strong>?<br><span style="font-size:11px;color:rgba(255,255,255,0.4);">Jadwal tetap ada, hanya status kembali ke belum.</span>', async () => {
+    showLoading(true,'Reset status...');
+    const {error} = await sb.from('jishusei_kenshin').update({done:false}).neq('id','00000000-0000-0000-0000-000000000000');
+    showLoading(false);
+    if(error) return toast('❌ '+error.message);
+    S.schedules.forEach(s=>s.done=false);
+    renderAll();
+    toast('↺ Semua status di-reset');
+  });
+}
+
+// ===== RESET ALL SCHEDULES =====
+function confirmResetSchedules() {
+  showConfirm('Hapus <strong>semua jadwal MCU</strong>?<br><span style="font-size:11px;color:rgba(255,255,255,0.4);">Semua nama dikeluarkan dari slot waktu. Data intern tetap ada.</span>', async () => {
+    showLoading(true,'Menghapus semua jadwal...');
+    const {error} = await sb.from('jishusei_kenshin').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    showLoading(false);
+    if(error) return toast('❌ '+error.message);
+    S.schedules = [];
+    S.openSlots.clear();
+    renderAll();
+    toast('🗑 Semua jadwal dihapus');
+  });
+}
+
+// ===== CONFIRM HELPER =====
+function showConfirm(msg, onOk) {
+  document.getElementById('confirm-msg').innerHTML = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  const nb = btn.cloneNode(true);
+  btn.parentNode.replaceChild(nb, btn);
+  nb.onclick = () => { closeModal('modal-confirm'); onOk(); };
+  openModal('modal-confirm');
+}
+
+// ===== INIT =====
+(async function init() {
+  S.selectMode = false;
+  S.selected.clear();
+  document.getElementById('fab-bar').classList.remove('show');
+  // pre-open first slot of each day
+  S.openSlots = new Set(TIME_SLOTS.slice(0, 3));
+
+  // set active day tab
+  setDay('mon');
+
+  await fetchAll();
+  renderAll();
+})();
+</script>
+</body>
+</html>
