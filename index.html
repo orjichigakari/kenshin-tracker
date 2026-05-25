@@ -309,24 +309,24 @@ body.select-mode .slot-add-btn { display: flex; align-items: center; }
 
 /* ===== FAB BAR ===== */
 .fab-bar {
-  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
   background: #1e1f23; border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 12px; padding: 8px 10px;
-  display: none; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  border-radius: 40px; padding: 6px 8px;
+  display: none; align-items: center; gap: 4px; flex-wrap: nowrap;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
   z-index: 250;
   max-width: calc(100vw - 24px);
 }
 .fab-bar.show { display: flex; }
-.fab-count { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.5); padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
-.fab-btn { height: 32px; padding: 0 10px; border-radius: 6px; border: none; font-size: 10px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.fab-count { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.45); padding: 0 8px 0 4px; border-right: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+.fab-btn { height: 36px; padding: 0 12px; border-radius: 30px; border: none; font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .fab-btn.assign { background: rgba(230,160,0,0.9); color: white; }
 .fab-btn.assign:hover { background: rgba(200,130,0,0.9); }
 .fab-btn.done-fab { background: rgba(0,140,70,0.9); color: white; }
 .fab-btn.done-fab:hover { background: #007a3a; }
-.fab-btn.remove { background: rgba(200,0,12,0.75); color: white; border: 1px solid rgba(200,0,12,0.5); }
+.fab-btn.remove { background: rgba(200,0,12,0.8); color: white; }
 .fab-btn.remove:hover { background: rgba(200,0,12,0.95); }
-.fab-btn.cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); }
+.fab-btn.cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); padding: 0 10px; }
 .fab-btn.cancel:hover { background: rgba(255,255,255,0.12); color: white; }
 
 /* ===== INTERN CHIP CHECKBOX ===== */
@@ -511,10 +511,10 @@ body.select-mode .intern-chip { cursor: pointer; }
 
 <!-- FAB BAR -->
 <div class="fab-bar" id="fab-bar">
-  <span class="fab-count" id="fab-count">0 dipilih</span>
-  <button class="fab-btn assign" onclick="openAssignModal()">📋 Assign Jam</button>
-  <button class="fab-btn done-fab" onclick="bulkToggleDone()">✓ Toggle Done</button>
-  <button class="fab-btn remove" onclick="bulkRemoveFromSlot()">🗑 Lepas Slot</button>
+  <span class="fab-count" id="fab-count">0</span>
+  <button class="fab-btn assign" onclick="openAssignModal()">📋 Jam</button>
+  <button class="fab-btn done-fab" onclick="bulkToggleDone()">✓ Done</button>
+  <button class="fab-btn remove" onclick="bulkRemoveFromSlot()">🗑 Lepas</button>
   <button class="fab-btn cancel" onclick="clearSelection()">✕</button>
 </div>
 
@@ -744,7 +744,7 @@ function toggleSelectMode() {
 function clearSelection() {
   S.selected.clear();
   document.getElementById('fab-bar').classList.remove('show');
-  document.getElementById('fab-count').textContent = '0 dipilih';
+  document.getElementById('fab-count').textContent = '0';
   document.querySelectorAll('.intern-chip.selected').forEach(c => c.classList.remove('selected'));
 }
 
@@ -753,7 +753,7 @@ function toggleSelect(internId) {
   else S.selected.add(internId);
   const n = S.selected.size;
   document.getElementById('fab-bar').classList.toggle('show', n > 0 && S.selectMode);
-  document.getElementById('fab-count').textContent = `${n} dipilih`;
+  document.getElementById('fab-count').textContent = `${n}`;
   document.querySelectorAll(`.intern-chip[data-intern-id="${internId}"]`).forEach(c => {
     c.classList.toggle('selected', S.selected.has(internId));
   });
