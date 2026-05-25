@@ -228,10 +228,10 @@ body.setting-mode .app-body { flex: 1; }
 }
 .intern-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
 .intern-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
+.intern-chip.unassigned-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
 .intern-chip.done { background: rgba(0,140,70,0.15); border-color: rgba(0,196,106,0.3); }
 .intern-chip.done .chip-name { color: rgba(255,255,255,0.35); text-decoration: line-through; }
 .intern-chip.unassigned-chip { background: rgba(60,130,220,0.1); border-color: rgba(80,160,255,0.25); }
-.intern-chip.unassigned-chip.selected { background: rgba(255,210,0,0.22); border-color: rgba(255,200,0,0.8); }
 
 .chip-name {
   font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.88);
@@ -1161,7 +1161,7 @@ async function doSync() {
     factory: r.data?.factory || null,
     dept: r.data?.dept || null,
     shift: r.data?.shift || null,
-  })).filter(r => r.name);
+  })).filter(r => r.name && r.shift === 'shift1');
 
   // build map of existing kenshin_interns by haichi_id
   const existingMap = {};
