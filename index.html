@@ -418,6 +418,46 @@ body.select-mode .intern-chip { cursor: pointer; }
 /* batch filter chips in pool group */
 .ua-batch-label { font-size: 9px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: rgba(140,200,255,0.4); letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 2px 4px; border-bottom: 1px solid rgba(80,160,255,0.1); margin-bottom: 6px; }
 .batch-group { margin-bottom: 8px; }
+
+/* ===== SEARCH POPUP ===== */
+.search-popup {
+  display: none; position: fixed; top: calc(var(--header-h) + var(--toolbar-h));
+  left: 10px; right: 10px; z-index: 180;
+  background: rgba(20,20,24,0.96); border: 1px solid rgba(230,0,18,0.3);
+  border-radius: 10px; padding: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  max-height: 60vh; overflow-y: auto;
+}
+.search-popup.open { display: block; }
+.search-popup-title { font-size: 9px; font-family: 'IBM Plex Mono', monospace; color: var(--red); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+.search-result-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  margin-bottom: 5px; cursor: default;
+}
+.sri-name { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9); flex: 1; }
+.sri-meta { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.35); }
+.sri-day { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--red); font-weight: 700; min-width: 24px; text-align: center; }
+.sri-time { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.5); min-width: 38px; }
+.sri-none { font-size: 11px; color: rgba(255,255,255,0.25); font-family: 'IBM Plex Mono', monospace; padding: 6px 4px; }
+
+/* ===== SUMMARY MODAL ===== */
+.summary-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.summary-table th { text-align: left; padding: 6px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+.summary-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); vertical-align: middle; }
+.summary-table tr:last-child td { border-bottom: none; }
+.summary-table td.td-time { font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.5); white-space: nowrap; }
+.summary-table td.td-done { text-align: center; }
+.summary-day-header { padding: 8px; background: rgba(230,0,18,0.1); border-bottom: 1px solid rgba(230,0,18,0.15); font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: rgba(230,0,18,0.8); }
+.summary-day-block { margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; }
+.btn-copy-text { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(0,196,106,0.3); background: rgba(0,140,70,0.1); color: rgba(0,196,106,0.9); font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.15s; }
+.btn-copy-text:hover { background: rgba(0,140,70,0.2); border-color: #00c46a; color: #00c46a; }
+.summary-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.sum-day-chip { padding: 4px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); transition: all 0.15s; }
+.sum-day-chip.active { border-color: var(--red); color: white; background: var(--red); }
 </style>
 </head>
 <body>
@@ -454,6 +494,13 @@ body.select-mode .intern-chip { cursor: pointer; }
     <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
   </div>
   <button class="btn-select-toggle" id="btn-select-toggle" onclick="toggleSelectMode()">☑ Pilih</button>
+  <button class="btn-select-toggle" onclick="openSummaryModal()" style="background:#1a1a1e;border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);">📋 Summary</button>
+</div>
+
+<!-- SEARCH POPUP -->
+<div class="search-popup" id="search-popup">
+  <div class="search-popup-title">🔍 Hasil Pencarian — Semua Hari</div>
+  <div id="search-popup-body"></div>
 </div>
 
 <!-- DAY TAB BAR -->
@@ -600,6 +647,24 @@ body.select-mode .intern-chip { cursor: pointer; }
   </div>
 </div>
 
+<!-- SUMMARY MODAL -->
+<div class="modal-overlay" id="modal-summary">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <span class="modal-title">📋 Summary Jadwal MCU</span>
+      <button class="modal-close" onclick="closeModal('modal-summary')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:12px;">
+      <div class="summary-filter-bar" id="summary-day-filters"></div>
+      <div id="summary-body"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn-copy-text" onclick="copyAsText()">📋 Copy Teks WA</button>
+      <button class="btn-cancel" onclick="closeModal('modal-summary')">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===== CONFIG =====
 const SUPABASE_URL  = 'https://zxecdtzmwaqnkskbelkv.supabase.co';
@@ -731,12 +796,76 @@ function onSearchInput() {
   const v = document.getElementById('search-input').value;
   document.getElementById('search-clear').classList.toggle('visible', v.length > 0);
   renderAll();
+  renderSearchPopup();
 }
 function clearSearch() {
   document.getElementById('search-input').value = '';
   document.getElementById('search-clear').classList.remove('visible');
+  document.getElementById('search-popup').classList.remove('open');
   renderAll();
 }
+
+function renderSearchPopup() {
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const popup = document.getElementById('search-popup');
+  const body = document.getElementById('search-popup-body');
+  if(!q || q.length < 1) { popup.classList.remove('open'); return; }
+
+  // find matching interns across all days
+  const matched = S.interns.filter(i => i.name.toLowerCase().includes(q));
+  body.innerHTML = '';
+
+  if(!matched.length) {
+    body.innerHTML = '<div class="sri-none">Tidak ada hasil.</div>';
+    popup.classList.add('open');
+    return;
+  }
+
+  matched.forEach(intern => {
+    const allSchedules = S.schedules.filter(s => s.intern_id === intern.id);
+    const deptShort = (intern.dept||'').replace('Kumitate','組').replace('Bode','ボ').replace('Toso','塗');
+
+    if(allSchedules.length === 0) {
+      const row = document.createElement('div');
+      row.className = 'search-result-item';
+      row.innerHTML = `
+        <span class="sri-day">—</span>
+        <span class="sri-time">—</span>
+        <span class="sri-name">${esc(intern.name)}</span>
+        <span class="sri-meta">${esc(deptShort)} · ${esc(intern.koutei||'')}</span>
+      `;
+      body.appendChild(row);
+    } else {
+      allSchedules.sort((a,b) => {
+        const di = DAYS.findIndex(d=>d.key===a.day) - DAYS.findIndex(d=>d.key===b.day);
+        if(di!==0) return di;
+        return a.mcu_time.localeCompare(b.mcu_time);
+      }).forEach(s => {
+        const dayInfo = DAYS.find(d=>d.key===s.day);
+        const row = document.createElement('div');
+        row.className = 'search-result-item';
+        row.innerHTML = `
+          <span class="sri-day">${dayInfo?.kanji||s.day}</span>
+          <span class="sri-time">${s.mcu_time}</span>
+          <span class="sri-name">${esc(intern.name)}${s.done?' <span style="color:#00c46a;font-size:10px;">✓</span>':''}</span>
+          <span class="sri-meta">${esc(deptShort)} · ${esc(intern.koutei||'')}</span>
+        `;
+        body.appendChild(row);
+      });
+    }
+  });
+
+  popup.classList.add('open');
+}
+
+// Close popup when tapping outside
+document.addEventListener('click', e => {
+  const popup = document.getElementById('search-popup');
+  const searchWrap = document.querySelector('.search-wrap');
+  if(popup.classList.contains('open') && !popup.contains(e.target) && !searchWrap.contains(e.target)) {
+    popup.classList.remove('open');
+  }
+});
 
 // ===== SELECT MODE =====
 function toggleSelectMode() {
@@ -1201,6 +1330,7 @@ async function doSync() {
     factory: r.data?.factory || null,
     dept: r.data?.dept || null,
     shift: r.data?.shift || null,
+    koutei: r.data?.koutei || null,
   })).filter(r => r.name && r.shift === 'shift1');
 
   // build map of existing kenshin_interns by haichi_id
@@ -1214,7 +1344,7 @@ async function doSync() {
   const toUpdate = haichi.filter(h => {
     if(!existingIds.has(h.haichi_id)) return false;
     const ex = existingMap[h.haichi_id];
-    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory || ex.dept!==h.dept || ex.shift!==h.shift;
+    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory || ex.dept!==h.dept || ex.shift!==h.shift || ex.koutei!==h.koutei;
   });
   const removed = S.interns.filter(i => !haichiIds.has(i.haichi_id));
 
@@ -1223,7 +1353,7 @@ async function doSync() {
 
   // insert new
   if(toAdd.length) {
-    const inserts = toAdd.map(h=>({haichi_id:h.haichi_id,name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift}));
+    const inserts = toAdd.map(h=>({haichi_id:h.haichi_id,name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei}));
     const {data:inserted, error:e} = await sb.from('kenshin_interns').insert(inserts).select();
     if(!e && inserted) { S.interns.push(...inserted); addedCount=inserted.length; }
   }
@@ -1231,11 +1361,11 @@ async function doSync() {
   // update changed
   for(const h of toUpdate) {
     const {error:e} = await sb.from('kenshin_interns')
-      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift})
+      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei})
       .eq('haichi_id', h.haichi_id);
     if(!e) {
       const ex = S.interns.find(i=>i.haichi_id===h.haichi_id);
-      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift});
+      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei});
       updatedCount++;
     }
   }
@@ -1294,6 +1424,134 @@ function showConfirm(msg, onOk) {
   btn.parentNode.replaceChild(nb, btn);
   nb.onclick = () => { closeModal('modal-confirm'); onOk(); };
   openModal('modal-confirm');
+}
+
+// ===== SUMMARY =====
+let summaryDayFilter = 'all'; // 'all' | day key
+
+function openSummaryModal() {
+  summaryDayFilter = 'all';
+  renderSummary();
+  openModal('modal-summary');
+}
+
+function renderSummary() {
+  // day filter chips
+  const filterBar = document.getElementById('summary-day-filters');
+  filterBar.innerHTML = '';
+  const allChip = document.createElement('span');
+  allChip.className = 'sum-day-chip' + (summaryDayFilter==='all'?' active':'');
+  allChip.textContent = 'Semua';
+  allChip.onclick = () => { summaryDayFilter='all'; renderSummary(); };
+  filterBar.appendChild(allChip);
+  DAYS.forEach(d => {
+    const hasData = S.schedules.some(s=>s.day===d.key);
+    if(!hasData) return;
+    const c = document.createElement('span');
+    c.className = 'sum-day-chip' + (summaryDayFilter===d.key?' active':'');
+    c.textContent = `${d.kanji} ${d.label}`;
+    c.onclick = () => { summaryDayFilter=d.key; renderSummary(); };
+    filterBar.appendChild(c);
+  });
+
+  const body = document.getElementById('summary-body');
+  body.innerHTML = '';
+
+  const daysToShow = summaryDayFilter==='all' ? DAYS.map(d=>d.key) : [summaryDayFilter];
+
+  daysToShow.forEach(dayKey => {
+    const dayInfo = DAYS.find(d=>d.key===dayKey);
+    const daySchedules = S.schedules
+      .filter(s=>s.day===dayKey)
+      .sort((a,b)=>a.mcu_time.localeCompare(b.mcu_time));
+    if(!daySchedules.length) return;
+
+    const block = document.createElement('div');
+    block.className = 'summary-day-block';
+    block.innerHTML = `<div class="summary-day-header">${dayInfo.kanji} ${dayInfo.label} — ${daySchedules.length}人</div>`;
+
+    const table = document.createElement('table');
+    table.className = 'summary-table';
+    table.innerHTML = `<thead><tr><th>JAM</th><th>NAMA</th><th>FACTORY</th><th>KOUTEI</th><th>✓</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    daySchedules.forEach(s => {
+      const intern = S.interns.find(i=>i.id===s.intern_id);
+      if(!intern) return;
+      const deptShort = (intern.dept||'').replace('Kumitate','組').replace('Bode','ボ').replace('Toso','塗');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="td-time">${esc(s.mcu_time)}</td>
+        <td>${esc(intern.name)}</td>
+        <td style="font-size:10px;color:rgba(255,255,255,0.5);">${esc(deptShort)}</td>
+        <td style="font-size:10px;color:rgba(255,255,255,0.5);">${esc(intern.koutei||'—')}</td>
+        <td class="td-done">${s.done?'<span style="color:#00c46a;">✓</span>':''}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    block.appendChild(table);
+    body.appendChild(block);
+  });
+
+  if(!body.innerHTML) {
+    body.innerHTML = '<div class="sri-none" style="padding:20px;">Belum ada jadwal.</div>';
+  }
+}
+
+// ===== COPY AS TEXT (zenkaku format) =====
+function toZenkaku(str) {
+  return str.replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0))
+            .replace(/:/g, '：');
+}
+
+function deptToJP(dept) {
+  return (dept||'').replace('Kumitate','組立').replace('Bode','ボデー').replace('Toso','塗装');
+}
+
+function copyAsText() {
+  // detect kojo from data
+  const factories = [...new Set(S.interns.map(i=>i.factory).filter(Boolean))];
+  const kojoLabel = factories.includes('kojo2') && !factories.includes('kojo1') ? 'kojo 2'
+                  : factories.includes('kojo1') && !factories.includes('kojo2') ? 'kojo 1'
+                  : 'kojo 1・2';
+
+  const daysToExport = summaryDayFilter==='all' ? DAYS.map(d=>d.key) : [summaryDayFilter];
+  const lines = [];
+  lines.push(`Berikut adalah Jadwal MCU dan vaksinasi influenza ${kojoLabel}`);
+
+  daysToExport.forEach(dayKey => {
+    const dayInfo = DAYS.find(d=>d.key===dayKey);
+    const daySchedules = S.schedules
+      .filter(s=>s.day===dayKey)
+      .sort((a,b)=>a.mcu_time.localeCompare(b.mcu_time));
+    if(!daySchedules.length) return;
+
+    lines.push(dayInfo.kanji);
+
+    daySchedules.forEach(s => {
+      const intern = S.interns.find(i=>i.id===s.intern_id);
+      if(!intern) return;
+      const timeZen = toZenkaku(s.mcu_time); // e.g. ９：３０
+      const deptJP = deptToJP(intern.dept||'');
+      const koutei = intern.koutei||'';
+      const detail = koutei ? `${deptJP}・${koutei}` : deptJP;
+      lines.push(`${timeZen}\t：${intern.name}（${detail}）`);
+    });
+  });
+
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    toast('📋 Teks berhasil di-copy!', 2500);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('📋 Teks berhasil di-copy!', 2500);
+  });
 }
 
 // ===== INIT =====
