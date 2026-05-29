@@ -994,30 +994,40 @@ function makeChip(intern, schEntry) {
 // ===== RENDER POOL (Unassigned for active day) =====
 function renderPool() {
   const wrap = document.getElementById('pool-section-wrap');
-  const q = document.getElementById('search-input').value.trim().toLowerCase();
 
-  // interns not assigned to activeDay
   const unassigned = S.interns.filter(i => {
     const hasSlot = S.schedules.find(s => s.intern_id===i.id);
     if(hasSlot) return false;
     if(!matchesFilters(i)) return false;
-    if(S.doneFilter !== 'all') return false; // pool is always undone
+    if(S.doneFilter !== 'all') return false;
     return true;
   });
 
   if(unassigned.length === 0) { wrap.innerHTML=''; return; }
 
-  // group by batch
-  const byBatch = {};
+  // Dept order: Kojo1 first (組立1,ボデー1,塗装1), then Kojo2 (組立2,ボデー2,塗装2)
+  const DEPT_ORDER = [
+    'Kumitate 1','Bode 1','Toso 1',
+    'Kumitate 2','Bode 2','Toso 2',
+  ];
+  const byDept = {};
   unassigned.forEach(i => {
-    const b = i.batch || '–';
-    if(!byBatch[b]) byBatch[b] = [];
-    byBatch[b].push(i);
+    const d = i.dept || '–';
+    if(!byDept[d]) byDept[d] = [];
+    byDept[d].push(i);
+  });
+  // sort interns within each dept by start_date
+  Object.values(byDept).forEach(arr => {
+    arr.sort((a,b) => {
+      if(!a.start_date && !b.start_date) return 0;
+      if(!a.start_date) return 1;
+      if(!b.start_date) return -1;
+      return a.start_date.localeCompare(b.start_date);
+    });
   });
 
   const sec = document.createElement('div');
   sec.className = 'pool-section' + (S.poolOpen?' open':'');
-
   sec.innerHTML = `
     <div class="pool-header" onclick="togglePool()">
       <span class="pool-chevron">▶</span>
@@ -1029,10 +1039,18 @@ function renderPool() {
 
   const body = sec.querySelector('#pool-body');
 
-  Object.entries(byBatch).sort((a,b)=>Number(a[0])-Number(b[0])||a[0].localeCompare(b[0])).forEach(([batch, interns]) => {
+  // render in dept order, then unknown depts at end
+  const orderedDepts = [
+    ...DEPT_ORDER.filter(d => byDept[d]),
+    ...Object.keys(byDept).filter(d => !DEPT_ORDER.includes(d)).sort(),
+  ];
+
+  orderedDepts.forEach(dept => {
+    const interns = byDept[dept];
+    const deptShort = dept.replace('Kumitate','組立').replace('Bode','ボデー').replace('Toso','塗装');
     const grp = document.createElement('div');
     grp.className = 'batch-group';
-    grp.innerHTML = `<div class="ua-batch-label">Batch ${batch}</div>`;
+    grp.innerHTML = `<div class="ua-batch-label">${deptShort}</div>`;
     const chipsWrap = document.createElement('div');
     chipsWrap.className = 'intern-chips-wrap';
     interns.forEach(i => chipsWrap.appendChild(makeChip(i, null)));
@@ -1331,7 +1349,6 @@ async function doSync() {
     dept: r.data?.dept || null,
     shift: r.data?.shift || null,
     koutei: r.data?.koutei || null,
-    start_date: r.data?.startDate || null,
   })).filter(r => r.name && r.shift === 'shift1');
 
   // build map of existing kenshin_interns by haichi_id
@@ -1345,7 +1362,7 @@ async function doSync() {
   const toUpdate = haichi.filter(h => {
     if(!existingIds.has(h.haichi_id)) return false;
     const ex = existingMap[h.haichi_id];
-    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory || ex.dept!==h.dept || ex.shift!==h.shift || ex.koutei!==h.koutei || ex.start_date!==h.start_date;
+    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory || ex.dept!==h.dept || ex.shift!==h.shift || ex.koutei!==h.koutei;
   });
   const removed = S.interns.filter(i => !haichiIds.has(i.haichi_id));
 
@@ -1354,7 +1371,7 @@ async function doSync() {
 
   // insert new
   if(toAdd.length) {
-    const inserts = toAdd.map(h=>({haichi_id:h.haichi_id,name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei,start_date:h.start_date}));
+    const inserts = toAdd.map(h=>({haichi_id:h.haichi_id,name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei}));
     const {data:inserted, error:e} = await sb.from('kenshin_interns').insert(inserts).select();
     if(!e && inserted) { S.interns.push(...inserted); addedCount=inserted.length; }
   }
@@ -1362,11 +1379,11 @@ async function doSync() {
   // update changed
   for(const h of toUpdate) {
     const {error:e} = await sb.from('kenshin_interns')
-      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei,start_date:h.start_date})
+      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei})
       .eq('haichi_id', h.haichi_id);
     if(!e) {
       const ex = S.interns.find(i=>i.haichi_id===h.haichi_id);
-      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei,start_date:h.start_date});
+      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei});
       updatedCount++;
     }
   }
@@ -1481,13 +1498,33 @@ function renderSummary() {
       if(!intern) return;
       const deptShort = (intern.dept||'').replace('Kumitate','組').replace('Bode','ボ').replace('Toso','塗');
       const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.style.transition = 'background 0.15s';
       tr.innerHTML = `
         <td class="td-time">${esc(s.mcu_time)}</td>
         <td>${esc(intern.name)}</td>
         <td style="font-size:10px;color:rgba(255,255,255,0.5);">${esc(deptShort)}</td>
         <td style="font-size:10px;color:rgba(255,255,255,0.5);">${esc(intern.koutei||'—')}</td>
-        <td class="td-done">${s.done?'<span style="color:#00c46a;">✓</span>':''}</td>
+        <td class="td-done" id="summary-done-${s.id}">${s.done?'<span style="color:#00c46a;font-size:14px;">✓</span>':'<span style="color:rgba(255,255,255,0.15);font-size:14px;">○</span>'}</td>
       `;
+      tr.addEventListener('click', async () => {
+        const newVal = !s.done;
+        const {error} = await sb.from('jishusei_kenshin').update({done:newVal}).eq('id',s.id);
+        if(error) { toast('❌ '+error.message); return; }
+        s.done = newVal;
+        const cell = document.getElementById(`summary-done-${s.id}`);
+        if(cell) cell.innerHTML = newVal
+          ? '<span style="color:#00c46a;font-size:14px;">✓</span>'
+          : '<span style="color:rgba(255,255,255,0.15);font-size:14px;">○</span>';
+        tr.style.background = newVal ? 'rgba(0,140,70,0.08)' : '';
+        // update main view too
+        renderStats();
+        renderSlots();
+        toast(newVal ? '✓ Selesai' : '↩ Dibatalkan');
+      });
+      tr.addEventListener('mouseenter', () => { tr.style.background = 'rgba(255,255,255,0.04)'; });
+      tr.addEventListener('mouseleave', () => { tr.style.background = s.done ? 'rgba(0,140,70,0.08)' : ''; });
+      if(s.done) tr.style.background = 'rgba(0,140,70,0.08)';
       tbody.appendChild(tr);
     });
 
