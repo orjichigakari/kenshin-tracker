@@ -1332,12 +1332,35 @@ async function doSync() {
   document.getElementById('btn-do-sync').disabled = true;
   showLoading(true,'Membaca data Haichi...');
 
-  const {data: haichiRaw, error} = await sb.from('interns').select('id, data');
+  const [{data: haichiRaw, error}, {data: zonesRaw, error: ze}] = await Promise.all([
+    sb.from('interns').select('id, data'),
+    sb.from('zones_facs').select('zone_key, zones'),
+  ]);
+
   showLoading(false);
-  if(error) {
+  if(error || ze) {
     toast('❌ Gagal baca Haichi');
     document.getElementById('btn-do-sync').disabled = false;
     return;
+  }
+
+  // build koutei lookup from zones_facs
+  // zones_facs: { zone_key: "kojo1::Kumitate 1", zones: [{x,y,w,h,l,...}] }
+  // intern: { factory: "kojo1", dept: "Kumitate 1", x, y }
+  function getKoutei(factory, dept, x, y) {
+    if(!x || !y) return null;
+    const zoneKey = `${factory}::${dept}`;
+    const zf = zonesRaw.find(z => z.zone_key === zoneKey);
+    if(!zf || !zf.zones) return null;
+    const fx = parseFloat(x), fy = parseFloat(y);
+    for(const z of zf.zones) {
+      const zx = parseFloat(z.x), zy = parseFloat(z.y);
+      const zw = parseFloat(z.w), zh = parseFloat(z.h);
+      if(fx >= zx && fx <= zx+zw && fy >= zy && fy <= zy+zh) {
+        return z.l || null;
+      }
+    }
+    return null;
   }
 
   // parse haichi interns
@@ -1348,7 +1371,8 @@ async function doSync() {
     factory: r.data?.factory || null,
     dept: r.data?.dept || null,
     shift: r.data?.shift || null,
-    koutei: r.data?.koutei || null,
+    start_date: r.data?.startDate || null,
+    koutei: getKoutei(r.data?.factory, r.data?.dept, r.data?.x, r.data?.y),
   })).filter(r => r.name && r.shift === 'shift1');
 
   // build map of existing kenshin_interns by haichi_id
@@ -1362,7 +1386,9 @@ async function doSync() {
   const toUpdate = haichi.filter(h => {
     if(!existingIds.has(h.haichi_id)) return false;
     const ex = existingMap[h.haichi_id];
-    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory || ex.dept!==h.dept || ex.shift!==h.shift || ex.koutei!==h.koutei;
+    return ex.name!==h.name || ex.batch!==h.batch || ex.factory!==h.factory
+      || ex.dept!==h.dept || ex.shift!==h.shift
+      || ex.koutei!==h.koutei || ex.start_date!==h.start_date;
   });
   const removed = S.interns.filter(i => !haichiIds.has(i.haichi_id));
 
@@ -1371,7 +1397,11 @@ async function doSync() {
 
   // insert new
   if(toAdd.length) {
-    const inserts = toAdd.map(h=>({haichi_id:h.haichi_id,name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei}));
+    const inserts = toAdd.map(h=>({
+      haichi_id:h.haichi_id, name:h.name, batch:h.batch,
+      factory:h.factory, dept:h.dept, shift:h.shift,
+      koutei:h.koutei, start_date:h.start_date
+    }));
     const {data:inserted, error:e} = await sb.from('kenshin_interns').insert(inserts).select();
     if(!e && inserted) { S.interns.push(...inserted); addedCount=inserted.length; }
   }
@@ -1379,11 +1409,13 @@ async function doSync() {
   // update changed
   for(const h of toUpdate) {
     const {error:e} = await sb.from('kenshin_interns')
-      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei})
+      .update({name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,
+               shift:h.shift,koutei:h.koutei,start_date:h.start_date})
       .eq('haichi_id', h.haichi_id);
     if(!e) {
       const ex = S.interns.find(i=>i.haichi_id===h.haichi_id);
-      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,dept:h.dept,shift:h.shift,koutei:h.koutei});
+      if(ex) Object.assign(ex,{name:h.name,batch:h.batch,factory:h.factory,
+        dept:h.dept,shift:h.shift,koutei:h.koutei,start_date:h.start_date});
       updatedCount++;
     }
   }
