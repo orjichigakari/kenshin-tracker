@@ -1477,43 +1477,65 @@ function showConfirm(msg, onOk) {
 }
 
 // ===== SUMMARY =====
-let summaryDayFilter = 'all'; // 'all' | day key
+let summaryKojoFilter = 'all'; // 'all' | 'kojo1' | 'kojo2'
 
 function openSummaryModal() {
-  summaryDayFilter = 'all';
+  summaryKojoFilter = 'all';
   renderSummary();
   openModal('modal-summary');
 }
 
 function renderSummary() {
-  // day filter chips
+  // kojo filter chips
   const filterBar = document.getElementById('summary-day-filters');
   filterBar.innerHTML = '';
-  const allChip = document.createElement('span');
-  allChip.className = 'sum-day-chip' + (summaryDayFilter==='all'?' active':'');
-  allChip.textContent = 'Semua';
-  allChip.onclick = () => { summaryDayFilter='all'; renderSummary(); };
-  filterBar.appendChild(allChip);
-  DAYS.forEach(d => {
-    const hasData = S.schedules.some(s=>s.day===d.key);
-    if(!hasData) return;
+
+  const chips = [
+    { key: 'all', label: 'Semua' },
+    { key: 'kojo1', label: 'Kojo 1' },
+    { key: 'kojo2', label: 'Kojo 2' },
+  ];
+  chips.forEach(({key, label}) => {
     const c = document.createElement('span');
-    c.className = 'sum-day-chip' + (summaryDayFilter===d.key?' active':'');
-    c.textContent = `${d.kanji} ${d.label}`;
-    c.onclick = () => { summaryDayFilter=d.key; renderSummary(); };
+    c.className = 'sum-day-chip' + (summaryKojoFilter===key?' active':'');
+    c.textContent = label;
+    c.onclick = () => { summaryKojoFilter=key; renderSummary(); };
     filterBar.appendChild(c);
   });
+
+  // update copy button state
+  const copyBtn = document.querySelector('.btn-copy-text');
+  if(copyBtn) {
+    if(summaryKojoFilter === 'all') {
+      copyBtn.disabled = true;
+      copyBtn.style.opacity = '0.3';
+      copyBtn.style.cursor = 'not-allowed';
+      copyBtn.title = 'Pilih Kojo 1 atau Kojo 2 dulu';
+    } else {
+      copyBtn.disabled = false;
+      copyBtn.style.opacity = '1';
+      copyBtn.style.cursor = 'pointer';
+      copyBtn.title = '';
+    }
+  }
 
   const body = document.getElementById('summary-body');
   body.innerHTML = '';
 
-  const daysToShow = summaryDayFilter==='all' ? DAYS.map(d=>d.key) : [summaryDayFilter];
-
-  daysToShow.forEach(dayKey => {
-    const dayInfo = DAYS.find(d=>d.key===dayKey);
-    const daySchedules = S.schedules
-      .filter(s=>s.day===dayKey)
+  DAYS.forEach(dayKey => {
+    const dayInfo = DAYS.find(d=>d.key===dayKey.key);
+    let daySchedules = S.schedules
+      .filter(s=>s.day===dayKey.key)
       .sort((a,b)=>a.mcu_time.localeCompare(b.mcu_time));
+
+    // filter by kojo
+    if(summaryKojoFilter !== 'all') {
+      daySchedules = daySchedules.filter(s => {
+        const intern = S.interns.find(i=>i.id===s.intern_id);
+        return intern?.factory === summaryKojoFilter;
+      });
+    }
+
     if(!daySchedules.length) return;
 
     const block = document.createElement('div');
@@ -1522,7 +1544,7 @@ function renderSummary() {
 
     const table = document.createElement('table');
     table.className = 'summary-table';
-    table.innerHTML = `<thead><tr><th>JAM</th><th>NAMA</th><th>FACTORY</th><th>KOUTEI</th><th>✓</th></tr></thead>`;
+    table.innerHTML = `<thead><tr><th>JAM</th><th>NAMA</th><th>DEPT</th><th>KOUTEI</th><th>✓</th></tr></thead>`;
     const tbody = document.createElement('tbody');
 
     daySchedules.forEach(s => {
@@ -1549,7 +1571,6 @@ function renderSummary() {
           ? '<span style="color:#00c46a;font-size:14px;">✓</span>'
           : '<span style="color:rgba(255,255,255,0.15);font-size:14px;">○</span>';
         tr.style.background = newVal ? 'rgba(0,140,70,0.08)' : '';
-        // update main view too
         renderStats();
         renderSlots();
         toast(newVal ? '✓ Selesai' : '↩ Dibatalkan');
@@ -1581,29 +1602,28 @@ function deptToJP(dept) {
 }
 
 function copyAsText() {
-  // detect kojo from data
-  const factories = [...new Set(S.interns.map(i=>i.factory).filter(Boolean))];
-  const kojoLabel = factories.includes('kojo2') && !factories.includes('kojo1') ? 'kojo 2'
-                  : factories.includes('kojo1') && !factories.includes('kojo2') ? 'kojo 1'
-                  : 'kojo 1・2';
+  if(summaryKojoFilter === 'all') { toast('Pilih Kojo 1 atau Kojo 2 dulu'); return; }
 
-  const daysToExport = summaryDayFilter==='all' ? DAYS.map(d=>d.key) : [summaryDayFilter];
+  const kojoLabel = summaryKojoFilter === 'kojo1' ? 'kojo 1' : 'kojo 2';
   const lines = [];
   lines.push(`Berikut adalah Jadwal MCU dan vaksinasi influenza ${kojoLabel}`);
 
-  daysToExport.forEach(dayKey => {
-    const dayInfo = DAYS.find(d=>d.key===dayKey);
-    const daySchedules = S.schedules
-      .filter(s=>s.day===dayKey)
+  DAYS.forEach(d => {
+    let daySchedules = S.schedules
+      .filter(s=>s.day===d.key)
+      .filter(s => {
+        const intern = S.interns.find(i=>i.id===s.intern_id);
+        return intern?.factory === summaryKojoFilter;
+      })
       .sort((a,b)=>a.mcu_time.localeCompare(b.mcu_time));
     if(!daySchedules.length) return;
 
-    lines.push(dayInfo.kanji);
+    lines.push(d.kanji);
 
     daySchedules.forEach(s => {
       const intern = S.interns.find(i=>i.id===s.intern_id);
       if(!intern) return;
-      const timeZen = toZenkaku(s.mcu_time); // e.g. ９：３０
+      const timeZen = toZenkaku(s.mcu_time);
       const deptJP = deptToJP(intern.dept||'');
       const koutei = intern.koutei||'';
       const detail = koutei ? `${deptJP}・${koutei}` : deptJP;
